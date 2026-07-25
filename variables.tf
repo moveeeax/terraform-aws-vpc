@@ -1,12 +1,29 @@
 variable "name" {
-  description = "Name tag applied to the VPC."
+  description = "Name tag applied to the VPC, and the basis for derived resource names."
   type        = string
+
+  validation {
+    condition     = length(trimspace(var.name)) > 0
+    error_message = "name must not be empty; it is used to build the flow log group and IAM role names."
+  }
 }
 
 variable "cidr_block" {
-  description = "IPv4 CIDR block for the VPC."
+  description = "IPv4 CIDR block for the VPC. AWS accepts prefix lengths from /16 to /28."
   type        = string
   default     = "10.0.0.0/16"
+
+  validation {
+    condition     = can(cidrnetmask(var.cidr_block))
+    error_message = "cidr_block must be a valid IPv4 CIDR block, for example 10.0.0.0/16."
+  }
+
+  # AWS rejects a VPC CIDR outside /16../28 at CreateVpc time. Catching it here
+  # turns a failed apply into a failed plan.
+  validation {
+    condition     = can(regex("/(1[6-9]|2[0-8])$", var.cidr_block))
+    error_message = "cidr_block must have a prefix length between /16 and /28; AWS rejects VPC CIDR blocks outside that range."
+  }
 }
 
 variable "instance_tenancy" {

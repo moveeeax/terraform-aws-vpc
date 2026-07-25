@@ -203,3 +203,90 @@ run "rejects_invalid_tenancy" {
 
   expect_failures = [var.instance_tenancy]
 }
+
+run "rejects_malformed_cidr" {
+  command = plan
+
+  variables {
+    cidr_block = "10.0.0.0"
+  }
+
+  expect_failures = [var.cidr_block]
+}
+
+run "rejects_ipv6_cidr" {
+  command = plan
+
+  variables {
+    cidr_block = "2001:db8::/32"
+  }
+
+  expect_failures = [var.cidr_block]
+}
+
+# AWS only accepts VPC CIDR prefixes from /16 to /28.
+run "rejects_cidr_prefix_shorter_than_16" {
+  command = plan
+
+  variables {
+    cidr_block = "10.0.0.0/8"
+  }
+
+  expect_failures = [var.cidr_block]
+}
+
+run "rejects_cidr_prefix_longer_than_28" {
+  command = plan
+
+  variables {
+    cidr_block = "10.0.0.0/29"
+  }
+
+  expect_failures = [var.cidr_block]
+}
+
+run "accepts_smallest_allowed_cidr" {
+  variables {
+    cidr_block = "10.0.0.0/28"
+  }
+
+  assert {
+    condition     = aws_vpc.this.cidr_block == "10.0.0.0/28"
+    error_message = "A /28 is the smallest CIDR AWS allows and must be accepted."
+  }
+}
+
+run "rejects_empty_name" {
+  command = plan
+
+  variables {
+    name = "   "
+  }
+
+  expect_failures = [var.name]
+}
+
+# AWS cannot enable DNS hostnames on a VPC with DNS support disabled, and only
+# says so after the VPC exists. The precondition surfaces it during plan.
+run "rejects_dns_hostnames_without_dns_support" {
+  command = plan
+
+  variables {
+    enable_dns_support   = false
+    enable_dns_hostnames = true
+  }
+
+  expect_failures = [aws_vpc.this]
+}
+
+run "accepts_both_dns_attributes_disabled" {
+  variables {
+    enable_dns_support   = false
+    enable_dns_hostnames = false
+  }
+
+  assert {
+    condition     = !aws_vpc.this.enable_dns_support && !aws_vpc.this.enable_dns_hostnames
+    error_message = "Turning both DNS attributes off is a valid combination and must be allowed."
+  }
+}
