@@ -27,3 +27,23 @@ output "main_route_table_id" {
   description = "ID of the main route table associated with the VPC."
   value       = aws_vpc.this.main_route_table_id
 }
+
+output "flow_log_id" {
+  description = "ID of the VPC flow log, or null when flow logs are disabled."
+  value       = one(aws_flow_log.this[*].id)
+}
+
+output "flow_log_cloudwatch_log_group_name" {
+  description = "Name of the CloudWatch log group receiving flow logs, or null when flow logs are disabled."
+  value       = one(aws_cloudwatch_log_group.flow_log[*].name)
+}
+
+output "flow_log_cloudwatch_log_group_arn" {
+  description = "ARN of the CloudWatch log group receiving flow logs, or null when flow logs are disabled."
+  value       = one(aws_cloudwatch_log_group.flow_log[*].arn)
+}
+
+output "flow_log_iam_role_arn" {
+  description = "ARN of the IAM role the flow log service assumes, or null when flow logs are disabled."
+  value       = one(aws_iam_role.flow_log[*].arn)
+}
