@@ -39,6 +39,18 @@ module "vpc" {
 
 A runnable example lives in [`examples/basic`](examples/basic).
 
+## Input validation
+
+Inputs that AWS would otherwise reject partway through an apply are checked
+during `terraform plan` instead:
+
+- `cidr_block` must be a valid IPv4 CIDR with a prefix length between `/16` and
+  `/28` — the range `CreateVpc` accepts.
+- `enable_dns_hostnames` may only be `true` when `enable_dns_support` is also
+  `true`. AWS enforces this in `ModifyVpcAttribute`, which runs *after* the VPC
+  has been created, so the invalid combination would otherwise leave a
+  half-applied VPC behind.
+
 ## Requirements
 
 | Name      | Version  |
@@ -50,8 +62,8 @@ A runnable example lives in [`examples/basic`](examples/basic).
 
 | Name                                | Description                                                                               | Type          | Default         | Required |
 |-------------------------------------|-------------------------------------------------------------------------------------------|---------------|-----------------|:--------:|
-| `name`                              | Name tag applied to the VPC.                                                              | `string`      | n/a             |   yes    |
-| `cidr_block`                        | IPv4 CIDR block for the VPC.                                                              | `string`      | `"10.0.0.0/16"` |    no    |
+| `name`                              | Name tag applied to the VPC, and the basis for derived resource names. Must be non-empty. | `string`      | n/a             |   yes    |
+| `cidr_block`                        | IPv4 CIDR block for the VPC. Prefix length must be between `/16` and `/28`.               | `string`      | `"10.0.0.0/16"` |    no    |
 | `instance_tenancy`                  | Tenancy of instances launched into the VPC (`default` or `dedicated`).                    | `string`      | `"default"`     |    no    |
 | `enable_dns_support`                | Whether DNS resolution is supported for the VPC.                                          | `bool`        | `true`          |    no    |
 | `enable_dns_hostnames`              | Whether instances receive public DNS hostnames.                                           | `bool`        | `true`          |    no    |

@@ -5,6 +5,17 @@ resource "aws_vpc" "this" {
   enable_dns_hostnames = var.enable_dns_hostnames
 
   tags = merge(var.tags, { Name = var.name })
+
+  # AWS refuses to enable DNS hostnames on a VPC whose DNS support is off, and
+  # it refuses at ModifyVpcAttribute time — after the VPC has already been
+  # created. Since enable_dns_hostnames defaults to true, flipping only
+  # enable_dns_support to false is an easy way to hit that half-applied state.
+  lifecycle {
+    precondition {
+      condition     = var.enable_dns_support || !var.enable_dns_hostnames
+      error_message = "enable_dns_hostnames requires enable_dns_support to be true; AWS will not enable DNS hostnames on a VPC with DNS support turned off."
+    }
+  }
 }
 
 # AWS creates a default security group with every VPC that allows all traffic
