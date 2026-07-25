@@ -6,3 +6,16 @@ resource "aws_vpc" "this" {
 
   tags = merge(var.tags, { Name = var.name })
 }
+
+# AWS creates a default security group with every VPC that allows all traffic
+# between its own members and unrestricted egress to 0.0.0.0/0. Declaring the
+# resource with no ingress/egress blocks revokes every rule, which is the
+# hardened state recommended by CIS AWS Foundations 5.4. Workloads should use
+# purpose-built security groups instead of the default one.
+resource "aws_default_security_group" "this" {
+  count = var.manage_default_security_group ? 1 : 0
+
+  vpc_id = aws_vpc.this.id
+
+  tags = merge(var.tags, { Name = "${var.name}-default" })
+}
