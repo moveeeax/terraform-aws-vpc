@@ -6,6 +6,20 @@ variable "name" {
     condition     = length(trimspace(var.name)) > 0
     error_message = "name must not be empty; it is used to build the flow log group and IAM role names."
   }
+
+  # var.name is spliced verbatim into the flow log CloudWatch log group name
+  # ("/aws/vpc-flow-log/${var.name}") and the flow log IAM role's name_prefix.
+  # Both AWS APIs reject characters outside this set — including plain spaces
+  # — but only at apply time (CreateLogGroup / CreateRole), well after this
+  # module's other validations would have caught a bad name. The set below is
+  # the intersection of what each API allows: CloudWatch Logs additionally
+  # allows "/" and "#", and IAM additionally allows "+ = , @", but neither
+  # accepts the other's extras, so only their common subset is safe here.
+  # Checking it turns a failed apply into a failed plan.
+  validation {
+    condition     = can(regex("^[\\w.-]+$", var.name))
+    error_message = "name may only contain letters, digits, underscores, hyphens and dots; it is used verbatim in the flow log CloudWatch log group name and IAM role name, and both reject other characters (including spaces, slashes and \"@\") at apply time."
+  }
 }
 
 variable "cidr_block" {
@@ -94,6 +108,14 @@ variable "flow_log_kms_key_arn" {
   description = "ARN of a KMS key used to encrypt the flow log group. Defaults to CloudWatch Logs' AWS-owned key."
   type        = string
   default     = null
+
+  # A malformed value here passes plan and fails at CreateLogGroup with an
+  # opaque InvalidParameterException. Checking the ARN shape during plan
+  # gives a precise error instead.
+  validation {
+    condition     = var.flow_log_kms_key_arn == null || can(regex("^arn:[^:]+:kms:[^:]+:\\d{12}:key/.+$", var.flow_log_kms_key_arn))
+    error_message = "flow_log_kms_key_arn must be null or a KMS key ARN, for example arn:aws:kms:us-east-1:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab."
+  }
 }
 
 variable "flow_log_max_aggregation_interval" {
