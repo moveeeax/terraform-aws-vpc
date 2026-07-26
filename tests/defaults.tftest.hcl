@@ -143,6 +143,46 @@ run "flow_log_role_is_least_privilege" {
   }
 }
 
+run "flow_log_group_uses_the_given_kms_key" {
+  variables {
+    flow_log_kms_key_arn = "arn:aws:kms:us-east-1:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab"
+  }
+
+  assert {
+    condition     = aws_cloudwatch_log_group.flow_log[0].kms_key_id == "arn:aws:kms:us-east-1:111122223333:key/1234abcd-12ab-34cd-56ef-1234567890ab"
+    error_message = "The flow log group must be encrypted with the given KMS key."
+  }
+}
+
+run "rejects_malformed_kms_arn" {
+  command = plan
+
+  variables {
+    flow_log_kms_key_arn = "not-an-arn"
+  }
+
+  expect_failures = [var.flow_log_kms_key_arn]
+}
+
+# Two independent opt-outs set together: neither should interfere with the
+# other, and no default-security-group or flow-log resources should appear.
+run "default_security_group_and_flow_logs_can_both_be_disabled" {
+  variables {
+    manage_default_security_group = false
+    enable_flow_log               = false
+  }
+
+  assert {
+    condition     = length(aws_default_security_group.this) == 0
+    error_message = "manage_default_security_group = false must not adopt the default security group, even with flow logs also disabled."
+  }
+
+  assert {
+    condition     = length(aws_flow_log.this) == 0
+    error_message = "enable_flow_log = false must not create a flow log, even with the default security group also left alone."
+  }
+}
+
 run "flow_logs_can_be_disabled" {
   variables {
     enable_flow_log = false
@@ -261,6 +301,56 @@ run "rejects_empty_name" {
 
   variables {
     name = "   "
+  }
+
+  expect_failures = [var.name]
+}
+
+# CloudWatch Logs and IAM both reject spaces in resource names, but only at
+# apply time. A name like this would otherwise sail through plan and fail
+# CreateLogGroup / CreateRole partway through apply.
+run "rejects_name_with_spaces" {
+  command = plan
+
+  variables {
+    name = "prod vpc"
+  }
+
+  expect_failures = [var.name]
+}
+
+# "/" is valid in a CloudWatch log group name but not in an IAM role name, and
+# var.name feeds both. This name would create a log group fine and then fail
+# the IAM role creation.
+run "rejects_name_with_slash" {
+  command = plan
+
+  variables {
+    name = "prod/vpc"
+  }
+
+  expect_failures = [var.name]
+}
+
+run "accepts_name_with_allowed_punctuation" {
+  variables {
+    name = "prod.vpc-1_east"
+  }
+
+  assert {
+    condition     = aws_vpc.this.tags["Name"] == "prod.vpc-1_east"
+    error_message = "Names built only from the allowed character set must be accepted."
+  }
+}
+
+# "@" is valid in an IAM role name but not in a CloudWatch log group name, and
+# var.name feeds both. This name would create the IAM role fine and then fail
+# the log group creation.
+run "rejects_name_with_at_sign" {
+  command = plan
+
+  variables {
+    name = "team@prod-vpc"
   }
 
   expect_failures = [var.name]

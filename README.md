@@ -50,6 +50,15 @@ during `terraform plan` instead:
   `true`. AWS enforces this in `ModifyVpcAttribute`, which runs *after* the VPC
   has been created, so the invalid combination would otherwise leave a
   half-applied VPC behind.
+- `name` may only contain letters, digits, underscores, hyphens and dots. It is
+  spliced verbatim into the flow log CloudWatch log group name and the flow
+  log IAM role name; each of those APIs accepts a few extra characters the
+  other rejects (`/` and `#` for CloudWatch, `+ = , @` for IAM), so only the
+  characters both accept are allowed here — otherwise the rejection only
+  surfaces when the resource is actually created.
+- `flow_log_kms_key_arn`, when set, must look like a KMS key ARN. A malformed
+  value would otherwise reach `CreateLogGroup` and fail there instead of at
+  plan time.
 
 ## Requirements
 
