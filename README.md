@@ -25,7 +25,7 @@ existing deployment.
 
 ```hcl
 module "vpc" {
-  source = "github.com/moveeeax/terraform-aws-vpc"
+  source = "github.com/moveeeax/terraform-aws-vpc?ref=v1.0.0" # pin to a release tag
 
   name       = "prod-vpc"
   cidr_block = "10.0.0.0/16"
